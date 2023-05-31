@@ -24,7 +24,7 @@ class Toolbox(object):
 class CalcHSI(object):
     def __init__(self):
         """Define the tool (tool name is the name of the class)."""
-        self.label = "CalcHSIver2"
+        self.label = "Calculate HSI"
         self.description = "Calculate HSI for various fish species at different life stages"
         self.canRunInBackground = False
 
