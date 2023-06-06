@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# import arcpy
 from arcpy import (Raster,
                    Parameter,
                    ListRasters,
@@ -18,7 +17,7 @@ class Toolbox(object):
         self.label = "Toolbox"
         self.alias = "toolbox"
 
-        # List of tool classes associated with this toolbox
+        # * List of tool classes associated with this toolbox.
         self.tools = [CalcHsi]
 
 class CalcHsi(object):
