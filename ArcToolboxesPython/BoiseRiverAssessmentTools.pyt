@@ -7,7 +7,7 @@ from arcpy import (Raster,
                    env,
                    Delete_management,
                    SetProgressorLabel,
-                   AddWarning)
+                   )
 from arcpy.ia import Con
 
 class Toolbox(object):
