@@ -284,7 +284,7 @@ class CalcHsi(object):
                             velocity_hsi_raster = Con((vel_raster>0) & (vel_raster<0.35),(1.03*vel_raster)+0.3,Con((vel_raster>0.35) & (vel_raster<0.95),(0.57*vel_raster)+0.461666667,Con((vel_raster>0.95) & (vel_raster<1.05),1,Con((vel_raster>1.05) & (vel_raster<1.15),(-0.4*vel_raster)+1.42,Con((vel_raster>1.15) & (vel_raster<1.45),(-1.3*vel_raster)+2.455,Con((vel_raster>1.45) & (vel_raster<1.55),(-0.5*vel_raster)+1.295,Con((vel_raster>1.55) & (vel_raster<5),(-0.15*vel_raster)+0.753623188,Con(vel_raster>5,0))))))))
                             SetProgressorLabel("Calculating final HSI raster for adult rainbow trout...")
                             final_hsi_raster = Con(depth_hsi_raster < velocity_hsi_raster, depth_hsi_raster, velocity_hsi_raster)
-                            final_hsi_raster.save(output_workspace + r"\RainbowTroutJuvenile" + dep_ras[3:] + "Hsi")
+                            final_hsi_raster.save(output_workspace + r"\RainbowTroutAdult" + dep_ras[3:] + "Hsi")
                             Delete_management(depth_hsi_raster)
                             Delete_management(velocity_hsi_raster)
                         if (sculpin_condition):
