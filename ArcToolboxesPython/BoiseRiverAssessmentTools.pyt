@@ -131,6 +131,11 @@ class CalcHsi(object):
         fry_condition = parameters[7].valueAsText
         spawn_condition = parameters[8].valueAsText
         output_workspace = parameters[9].valueAsText
+
+        #* This creates a list of the existing HSI rasters
+        env.workspace = output_workspace
+        computed_rasters = ListRasters("*")
+
         env.workspace = depth_velocity_raster_gdb
 
         AddMessage(f"{depth_velocity_raster_gdb} is the input gdb")
@@ -155,7 +160,7 @@ class CalcHsi(object):
                     vel_raster = Raster(vel_ras)
 
                     if (spawn_condition):
-                        if (brown_trout_condition):
+                        if (brown_trout_condition) and (("BrownTroutSpawn" + dep_ras[3:] + "Hsi") not in computed_rasters):
                             SetProgressorLabel("Calculating depth HSI for spawn brown trout...")
                             depth_hsi_raster = Con((dep_raster>0) & (dep_raster<0.2),0,Con((dep_raster>0.2) & (dep_raster<0.8),(1.666667*dep_raster)-0.3333333,Con(dep_raster>0.8,1)))
                             SetProgressorLabel("Calculating velocity HSI for spawn brown trout...")
@@ -165,7 +170,7 @@ class CalcHsi(object):
                             final_hsi_raster.save(output_workspace + r"\BrownTroutSpawn" + dep_ras[3:] + "Hsi")
                             Delete_management(depth_hsi_raster)
                             Delete_management(velocity_hsi_raster)
-                        if (mountain_whitefish_condition):
+                        if (mountain_whitefish_condition) and (("MountainWhitefishSpawn" + dep_ras[3:] + "Hsi") not in computed_rasters):
                             SetProgressorLabel("Calculating depth HSI for spawn mountain whitefish...")
                             depth_hsi_raster = Con((dep_raster>0) & (dep_raster<0.35),0,Con((dep_raster>0.35) & (dep_raster<0.45),(1.8*dep_raster)-0.63,Con((dep_raster>0.45) & (dep_raster<3.15),(0.3*dep_raster)+0.0433333,Con((dep_raster>3.15) & (dep_raster<3.25),1,Con((dep_raster>3.25) & (dep_raster<3.85),(-0.67*dep_raster)+3.1666667,Con(dep_raster>3.85,0.6))))))
                             SetProgressorLabel("Calculating velocity HSI for spawn mountain whitefish...")
@@ -175,7 +180,7 @@ class CalcHsi(object):
                             final_hsi_raster.save(output_workspace + r"\MountainWhitefishSpawn" + dep_ras[3:] + "Hsi")
                             Delete_management(depth_hsi_raster)
                             Delete_management(velocity_hsi_raster)
-                        if (rainbow_trout_condition):
+                        if (rainbow_trout_condition) and (("RainbowTroutSpawn" + dep_ras[3:] + "Hsi") not in computed_rasters):
                             SetProgressorLabel("Calculating depth HSI for spawn rainbow trout...")
                             depth_hsi_raster = Con((dep_raster>0) & (dep_raster<0.15),0,Con((dep_raster>0.15) & (dep_raster<0.35),(1.5*dep_raster)-0.225,Con((dep_raster>0.35) & (dep_raster<0.45),(5.5*dep_raster)-1.625,Con((dep_raster>0.45) & (dep_raster<0.55),(1.5*dep_raster)+0.175,Con((dep_raster>0.55) & (dep_raster<0.95),1,Con((dep_raster>0.95) & (dep_raster<1.35),(-1*dep_raster)+1.95,Con((dep_raster>1.35) & (dep_raster<1.45),(-3.5*dep_raster)+5.325,Con(dep_raster>1.45,0.25))))))))
                             SetProgressorLabel("Calculating velocity HSI for spawn rainbow trout...")
@@ -189,7 +194,7 @@ class CalcHsi(object):
                             AddMessage("No spawn data for sculpin")
                     
                     if (fry_condition):
-                        if (brown_trout_condition):
+                        if (brown_trout_condition) and (("BrownTroutFry" + dep_ras[3:] + "Hsi") not in computed_rasters):
                             SetProgressorLabel("Calculating depth HSI for fry brown trout...")
                             depth_hsi_raster = Con((dep_raster>0) & (dep_raster<=0.66),(0.287879*dep_raster),Con((dep_raster>0.66) & (dep_raster<=1.31),(1.246154*dep_raster)-0.63246,Con((dep_raster>1.31) & (dep_raster<=1.61),1,Con((dep_raster>1.61) & (dep_raster<=2.3),(-0.26087*dep_raster)+1.42,Con((dep_raster>2.3) & (dep_raster<=4.6),(-0.35652*dep_raster)+1.64,Con(dep_raster>4.6,0))))))
                             SetProgressorLabel("Calculating velocity HSI for fry brown trout...")
@@ -199,7 +204,7 @@ class CalcHsi(object):
                             final_hsi_raster.save(output_workspace + r"\BrownTroutFry" + dep_ras[3:] + "Hsi")
                             Delete_management(depth_hsi_raster)
                             Delete_management(velocity_hsi_raster)
-                        if (rainbow_trout_condition):
+                        if (rainbow_trout_condition) and (("RainbowTroutFry" + dep_ras[3:] + "Hsi") not in computed_rasters):
                             SetProgressorLabel("Calculating depth HSI for fry rainbow trout...")
                             depth_hsi_raster = Con((dep_raster>0) & (dep_raster<=0.1),(1.1*dep_raster),Con((dep_raster>0.1) & (dep_raster<=0.5),(2.225*dep_raster)-0.1125,Con((dep_raster>0.5) & (dep_raster<=1.64),1,Con((dep_raster>1.64) & (dep_raster<=2.46),(-0.86585*dep_raster)+2.42,Con((dep_raster>2.46) & (dep_raster<=3.28),(-0.19512*dep_raster)+0.77,Con((dep_raster>3.28) & (dep_raster<=4.1),(-0.10976*dep_raster)+0.49,Con((dep_raster>4.1) & (dep_raster<=4.92),(-0.02439*dep_raster)+0.14,Con((dep_raster>4.92) & (dep_raster<=5.74),(-0.0122*dep_raster)+0.08,Con((dep_raster>5.74) & (dep_raster<=7.38),0.01,Con((dep_raster>7.38) & (dep_raster<=8.2),(-0.0122*dep_raster)+0.1,Con(dep_raster>8.2,0)))))))))))
                             SetProgressorLabel("Calculating velocity HSI for fry rainbow trout...")
@@ -215,7 +220,7 @@ class CalcHsi(object):
                             AddMessage("No fry data for sculpin")
                     
                     if (juvenile_condition):
-                        if (brown_trout_condition):
+                        if (brown_trout_condition) and (("BrownTroutJuvenile" + dep_ras[3:] + "Hsi") not in computed_rasters):
                             SetProgressorLabel("Calculating depth HSI for juvenile brown trout...")
                             depth_hsi_raster = Con((dep_raster>0) & (dep_raster<0.5),(0.24*dep_raster),Con((dep_raster>0.5) & (dep_raster<1),(0.98*dep_raster)-0.37,Con((dep_raster>1) & (dep_raster<2),(0.23*dep_raster)+0.38,Con((dep_raster>2) & (dep_raster<3),(0.16*dep_raster)+0.52,Con((dep_raster>3) & (dep_raster<4),(-0.73*dep_raster)+3.19,Con((dep_raster>4) & (dep_raster<7),(-0.01*dep_raster)+0.31,Con((dep_raster>7) & (dep_raster<8),(-0.16*dep_raster)+1.36,Con(dep_raster>8,0.08))))))))
                             SetProgressorLabel("Calculating velocity HSI for juvenile brown trout...")
@@ -225,7 +230,7 @@ class CalcHsi(object):
                             final_hsi_raster.save(output_workspace + r"\BrownTroutJuvenile" + dep_ras[3:] + "Hsi")
                             Delete_management(depth_hsi_raster)
                             Delete_management(velocity_hsi_raster)
-                        if (mountain_whitefish_condition):
+                        if (mountain_whitefish_condition) and (("MountainWhitefishJuvenile" + dep_ras[3:] + "Hsi") not in computed_rasters):
                             SetProgressorLabel("Calculating depth HSI for juvenile mountain whitefish...")
                             depth_hsi_raster = Con((dep_raster>0) & (dep_raster<0.45),0,Con((dep_raster>0.45) & (dep_raster<0.75),(0.7*dep_raster)-0.315,Con((dep_raster>0.75) & (dep_raster<2.05),(0.45*dep_raster)-0.130384615,Con((dep_raster>2.05) & (dep_raster<2.85),(0.25*dep_raster)+0.2875,Con((dep_raster>2.85) & (dep_raster<2.95),1,Con((dep_raster>2.95) & (dep_raster<3.25),(-0.17*dep_raster)+1.491666667,Con((dep_raster>3.25) & (dep_raster<3.95),(-0.61*dep_raster)+2.946428571,Con((dep_raster>3.95) & (dep_raster<4.75),(-0.28*dep_raster)+1.60625,Con(dep_raster>4.75,0.3)))))))))
                             SetProgressorLabel("Calculating velocity HSI for juvenile mountain whitefish...")
@@ -235,7 +240,7 @@ class CalcHsi(object):
                             final_hsi_raster.save(output_workspace + r"\MountainWhitefishJuvenile" + dep_ras[3:] + "Hsi")
                             Delete_management(depth_hsi_raster)
                             Delete_management(velocity_hsi_raster)
-                        if (rainbow_trout_condition):
+                        if (rainbow_trout_condition) and (("RainbowTroutJuvenile" + dep_ras[3:] + "Hsi") not in computed_rasters):
                             SetProgressorLabel("Calculating depth HSI for juvenile rainbow trout...")
                             depth_hsi_raster = Con((dep_raster>0) & (dep_raster<0.15),0,Con((dep_raster>0.15) & (dep_raster<0.65),(0.2*dep_raster)-0.03,Con((dep_raster>0.65) & (dep_raster<1.35),(0.757142857*dep_raster)-0.392142857,Con((dep_raster>1.35) & (dep_raster<2.65),(0.284615385*dep_raster)+0.245769231,Con(dep_raster>2.65,1)))))
                             SetProgressorLabel("Calculating velocity HSI for juvenile rainbow trout...")
@@ -245,7 +250,7 @@ class CalcHsi(object):
                             final_hsi_raster.save(output_workspace + r"\RainbowTroutJuvenile" + dep_ras[3:] + "Hsi")
                             Delete_management(depth_hsi_raster)
                             Delete_management(velocity_hsi_raster)
-                        if (sculpin_condition):
+                        if (sculpin_condition) and (("SculpinJuvenile" + dep_ras[3:] + "Hsi") not in computed_rasters):
                             SetProgressorLabel("Calculating depth HSI for juvenile sculpin...")
                             depth_hsi_raster = Con((dep_raster>0) & (dep_raster<0.3281),(0.4572*dep_raster)+0.85,Con((dep_raster>0.3281) & (dep_raster<1.6404),(-0.4953*dep_raster)+1.1625,Con((dep_raster>1.6404) & (dep_raster<3.2808),(-0.1524*dep_raster)+0.6,Con((dep_raster>3.2808) & (dep_raster<4.9213),(-0.03048*dep_raster)+0.2,Con((dep_raster>4.9213) & (dep_raster<6.5617),(-0.03048*dep_raster)+0.2,Con(dep_raster>6.5617,0))))))
                             SetProgressorLabel("Calculating velocity HSI for juvenile sculpin ")
@@ -257,7 +262,7 @@ class CalcHsi(object):
                             Delete_management(velocity_hsi_raster)
                     
                     if (adult_condition):
-                        if (brown_trout_condition):
+                        if (brown_trout_condition) and (("BrownTroutAdult" + dep_ras[3:] + "Hsi") not in computed_rasters):
                             SetProgressorLabel("Calculating depth HSI for adult brown trout...")
                             depth_hsi_raster = Con((dep_raster>0) & (dep_raster<1.6),(0.54375*dep_raster),Con((dep_raster>1.6) & (dep_raster<2),(0.2*dep_raster)+0.55,Con((dep_raster>2) & (dep_raster<2.6),(0.083333*dep_raster)+0.783333,Con((dep_raster>2.6) & (dep_raster<3.6),(-0.16*dep_raster)+1.416,Con((dep_raster>3.6) & (dep_raster<4),(-0.975*dep_raster)+4.35,Con((dep_raster>4) & (dep_raster<5),(-0.15*dep_raster)+1.05,Con((dep_raster>5) & (dep_raster<7),(-0.045*dep_raster)+0.525,Con(dep_raster>7,0.21))))))))
                             SetProgressorLabel("Calculating velocity HSI for adult brown trout... ")
@@ -267,7 +272,7 @@ class CalcHsi(object):
                             final_hsi_raster.save(output_workspace + r"\BrownTroutAdult" + dep_ras[3:] + "Hsi")
                             Delete_management(depth_hsi_raster)
                             Delete_management(velocity_hsi_raster)
-                        if (mountain_whitefish_condition):
+                        if (mountain_whitefish_condition) and (("MountainWhitefishAdult" + dep_ras[3:] + "Hsi") not in computed_rasters):
                             SetProgressorLabel("Calculating depth HSI for adult mountain whitefish...")
                             depth_hsi_raster = Con((dep_raster>0) & (dep_raster<0.55),0,Con((dep_raster>0.55) & (dep_raster<1.55),(0.3*dep_raster)-0.165,Con((dep_raster>1.55) & (dep_raster<2.25),(0.143*dep_raster)+0.0785714,Con((dep_raster>2.25) & (dep_raster<3.25),(0.6*dep_raster)-0.95,Con((dep_raster>3.25) & (dep_raster<3.45),(-0.95*dep_raster)+4.0875,Con((dep_raster>3.45) & (dep_raster<3.95),0.81,Con((dep_raster>3.95) & (dep_raster<4.75),(-0.175*dep_raster)+1.50125,Con((dep_raster>4.75) & (dep_raster<5),(-0.680*dep_raster)+3.9,Con(dep_raster>5,0.5)))))))))
                             SetProgressorLabel("Calculating velocity HSI for adult mountain whitefish...")
@@ -277,7 +282,7 @@ class CalcHsi(object):
                             final_hsi_raster.save(output_workspace + r"\MountainWhitefishAdult" + dep_ras[3:] + "Hsi")
                             Delete_management(depth_hsi_raster)
                             Delete_management(velocity_hsi_raster)
-                        if (rainbow_trout_condition):
+                        if (rainbow_trout_condition) and (("RainbowTroutAdult" + dep_ras[3:] + "Hsi") not in computed_rasters):
                             SetProgressorLabel("Calculating depth HSI for adult rainbow trout...")
                             depth_hsi_raster = Con((dep_raster>0) & (dep_raster<0.75),(0.04*dep_raster),Con((dep_raster>0.75) & (dep_raster<3.25),(0.23*dep_raster)-0.141,Con((dep_raster>3.25) & (dep_raster<3.45),(0.95*dep_raster)-2.4875,Con((dep_raster>3.45) & (dep_raster<3.85),(0.525*dep_raster)-1.02125,Con(dep_raster>3.85,1)))))
                             SetProgressorLabel("Calculating velocity HSI for adult rainbow trout...")
@@ -287,7 +292,7 @@ class CalcHsi(object):
                             final_hsi_raster.save(output_workspace + r"\RainbowTroutAdult" + dep_ras[3:] + "Hsi")
                             Delete_management(depth_hsi_raster)
                             Delete_management(velocity_hsi_raster)
-                        if (sculpin_condition):
+                        if (sculpin_condition) and (("SculpinAdult" + dep_ras[3:] + "Hsi") not in computed_rasters):
                             SetProgressorLabel("Calculating depth HSI for adult sculpin ")
                             depth_hsi_raster = Con((dep_raster>0) & (dep_raster<0.3281),(0.4572*dep_raster)+0.85,Con((dep_raster>0.3281) & (dep_raster<1.6404),(-0.4953*dep_raster)+1.1625,Con((dep_raster>1.6404) & (dep_raster<3.2808),(-0.1524*dep_raster)+0.6,Con((dep_raster>3.2808) & (dep_raster<4.9213),(-0.03048*dep_raster)+0.2,Con((dep_raster>4.9213) & (dep_raster<6.5617),(-0.03048*dep_raster)+0.2,Con(dep_raster>6.5617,0))))))
                             SetProgressorLabel("Calculating velocity HSI for adult sculpin ")
