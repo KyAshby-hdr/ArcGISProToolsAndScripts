@@ -118,7 +118,7 @@ class CalculatePeriphyton(object):
     def execute(self, parameters, messages):
         """The source code of the tool."""
 
-        # The parameters here are defined by the user.
+        # * The parameters here are defined by the user.
         InputGdb = parameters[0].valueAsText
         InMetersBoolean = parameters[1].valueAsText
         BiomassValue = parameters[2].valueAsText
@@ -134,11 +134,11 @@ class CalculatePeriphyton(object):
         InputRasterList = ListRasters("*")
 
         
-        # This part of the code determines if the input rasters are in units of meters.
-        # It does so by checking if there is a "Meters" suffix.
-        # If there isn't a "Meters" suffix, it assumes that the rasters are in units of feet.
-        # The code then converts the rasters from feet to meters and saves the meter rasters in the specified output geodatabase.
-        # This calculation only needs to be done once, unless the created "Meters" rasters are removed or the suffix removed.
+        # * This part of the code determines if the input rasters are in units of meters.
+        # * It does so by checking if there is a "Meters" suffix.
+        # * If there isn't a "Meters" suffix, it assumes that the rasters are in units of feet.
+        # * The code then converts the rasters from feet to meters and saves the meter rasters in the specified output geodatabase.
+        # * This calculation only needs to be done once, unless the created "Meters" rasters are removed or the suffix removed.
         if InMetersBoolean == "false":
             for ras in InputRasterList:
                 if f"Meter{ras}" in MeterRasterList:
@@ -157,8 +157,8 @@ class CalculatePeriphyton(object):
                     Ras = Raster(ras)
                     Ras.save(f"{OutputGdb}\\Meter{ras}")
 
-        # The code here sorts the depth and velocity rasters
-        # It also displays a message in the popup dialog box in ArcGIS Pro, showing a list of the depth and velocity rasters.
+        # * The code here sorts the depth and velocity rasters
+        # * It also displays a message in the popup dialog box in ArcGIS Pro, showing a list of the depth and velocity rasters.
         env.workspace = OutputGdb
         rasterList = ListRasters("*")
         DepthRasters = []
@@ -171,8 +171,8 @@ class CalculatePeriphyton(object):
         AddMessage(f"Depth rasters: {DepthRasters}")
         AddMessage(f"Velocity rasters: {VelocityRasters}")
 
-        # Here the Biovolume is calculated using the equation found in the AQUATOX documentation.
-        # The variables needed to calculate the Biovolume is depth, from the depth raster, and biomass, which is defined by the user.
+        # * Here the Biovolume is calculated using the equation found in the AQUATOX documentation.
+        # * The variables needed to calculate the Biovolume is depth, from the depth raster, and biomass, which is defined by the user.
         BioVolRasterList = ListRasters("*Biovol")
         for depRas in DepthRasters:
             if f"{depRas[8:]}Biovol" in BioVolRasterList:
@@ -184,8 +184,8 @@ class CalculatePeriphyton(object):
                 BiovolRas = RasterCalculator([DepRas],["DepRas"],f"({Biomass}/0.00000000857) * DepRas")
                 BiovolRas.save(f"{OutputGdb}\\{depRas[8:]}Biovol")
         
-        # Here the adaptation factor is calculated.
-        # To calculate the adaptation factor, a velocity value is needed, which is provided by the velocity rasters.
+        # * Here the adaptation factor is calculated.
+        # * To calculate the adaptation factor, a velocity value is needed, which is provided by the velocity rasters.
         AdaptFactorRasterList = ListRasters("*Adapt")
         for velRas in VelocityRasters:
             if f"{velRas[8:]}Adapt" in AdaptFactorRasterList:
@@ -196,9 +196,9 @@ class CalculatePeriphyton(object):
                 AdaptRas = RasterCalculator([VelRas], ["VelRas"], "(VelRas**2) / 0.006634")
                 AdaptRas.save(f"{OutputGdb}\\{velRas[8:]}Adapt")
         
-        # After calculating the biovolume and adaptation factor, the drag force is calculated.
-        # The drag force is calculated using the velocity raster, the biovolume raster calculated previously, and other values that are specified by the user
-        # These user specified values include a drag coeff, rho value, and unit area
+        # * After calculating the biovolume and adaptation factor, the drag force is calculated.
+        # * The drag force is calculated using the velocity raster, the biovolume raster calculated previously, and other values that are specified by the user
+        # * These user specified values include a drag coeff, rho value, and unit area
         BioVolRasterList = ListRasters("*Biovol")
         for bioRas in BioVolRasterList:
             for velRas in VelocityRasters:
@@ -209,8 +209,8 @@ class CalculatePeriphyton(object):
                     DragForceRas = RasterCalculator([VelRas,BioRas],["VelRas","BioRas"],f"{RhoValue}*{DragCoeffValue}*(VelRas**2)*((BioRas*{UnitAreaValue})**(2/3))*0.000001")
                     DragForceRas.save(f"{OutputGdb}\\{velRas[8:]}DragForce")
         
-        # The code here calculates the optimal area for periphyton by multiplying the specified FCritValue by the Adaptation factor raster.
-        # See equation 75 in the following PDF for a bit more context: https://www.epa.gov/sites/default/files/2014-03/documents/technical-documentation-3-1.pdf
+        # * The code here calculates the optimal area for periphyton by multiplying the specified FCritValue by the Adaptation factor raster.
+        # * See equation 75 in the following PDF for a bit more context: https://www.epa.gov/sites/default/files/2014-03/documents/technical-documentation-3-1.pdf
         AdaptFactorRasterList = ListRasters("*Adapt")
         for adaptRas in AdaptFactorRasterList:
             SetProgressorLabel(f"Calculating {adaptRas[:-5]}OptimalArea raster...")
@@ -218,10 +218,10 @@ class CalculatePeriphyton(object):
             OptimalAreaRas = RasterCalculator([AdaptRas], ["AdaptRas"], f"{FCritValue} * AdaptRas")
             OptimalAreaRas.save(f"{OutputGdb}\\{adaptRas[:-5]}OptimalArea")
         
-        # Initially, the results given specified areas as either optimal or not optimal.
-        # This binary method of distinguishing periphyton growth areas was not useful, so a new method was devised.
-        # This involved taking the drag force raster and dividing it by the optimal area raster calculated previously.
-        # This results in a raster that shows a relative scale for how optimal an area is for periphyton growth.
+        # * Initially, the results given specified areas as either optimal or not optimal.
+        # * This binary method of distinguishing periphyton growth areas was not useful, so a new method was devised.
+        # * This involved taking the drag force raster and dividing it by the optimal area raster calculated previously.
+        # * This results in a raster that shows a relative scale for how optimal an area is for periphyton growth.
         OptimalAreaRasterList = ListRasters("*OptimalArea")
         DragForceRasterList = ListRasters("*DragForce")
         for dragRas in DragForceRasterList:
