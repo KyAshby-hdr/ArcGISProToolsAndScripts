@@ -145,9 +145,9 @@ class CalcHsi(object):
         velocity_rasters = []
 
         for raster in raster_list:
-            if "Depth" in raster:
+            if "Dep" in raster:
                 depth_rasters.append(raster)
-            elif "Velocity" in raster:
+            elif "Vel" in raster:
                 velocity_rasters.append(raster)
 
         AddMessage(f"{depth_rasters} are the depth rasters")
