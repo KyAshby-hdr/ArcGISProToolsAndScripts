@@ -8,12 +8,22 @@ from arcpy import (Raster,
                    env,
                    SetProgressorLabel,
                    AddError,
-                   ListTables
+                   ListTables,
+                   ListFields,
                    )
 from arcpy.sa import ExtractValuesToPoints
-from arcpy.management import SelectLayerByAttribute, SelectLayerByLocation, GetCount, FieldStatisticsToTable
+from arcpy.management import (SelectLayerByAttribute,
+                              SelectLayerByLocation,
+                              GetCount,
+                              FieldStatisticsToTable,
+                              Append, 
+                              Delete,
+                              CreateTable,
+                              AddField,
+                              CalculateField
+                              )
 from arcpy.da import SearchCursor
-
+from arcpy.conversion import ExportTable
 class Toolbox:
     def __init__(self):
         """Define the toolbox (the name of the toolbox is the name of the
@@ -65,7 +75,14 @@ class dam_breach_tool:
         #    direction="Input",
         #    multiValue=True
         #)
-        params = [input_gdb, structure_points, reach_boundaries]
+        out_table_path = Parameter(
+            displayName="Output table save location",
+            name="out_table_path",
+            datatype="DEFolder",
+            parameterType="Required",
+            direction="Input"
+        )
+        params = [input_gdb, structure_points, reach_boundaries, out_table_path]
         return params
 
     def isLicensed(self):
@@ -88,70 +105,97 @@ class dam_breach_tool:
         input_gdb = parameters[0].valueAsText
         structure_points = parameters[1].valueAsText
         reach_boundaries = parameters[2].valueAsText
+        out_table_path = parameters[3].valueAsText
 
         # #* Set the workspace/geodatabase to pull data
-        # env.workspace = input_gdb
-        # AddMessage(f"{input_gdb} is the input gdb")
+        env.workspace = input_gdb
+        AddMessage(f"{input_gdb} is the input gdb")
 
-        # #* Get unique IDs for reach boundaries
-        # attribute_list = []
-        # with SearchCursor(reach_boundaries, ["OBJECTID"]) as cursor:
-        #     for row in cursor:
-        #         attribute_list.append(row[0])
+        #* Get unique IDs for reach boundaries
+        attribute_list = []
+        with SearchCursor(reach_boundaries, ["OBJECTID"]) as cursor:
+            for row in cursor:
+                attribute_list.append(row[0])
 
-        # #* Create list of all field names in the point structure shapefile/feature class
-        # point_field_name_list = []
-        # point_field_list = ListFields(structure_points)
-        # for field in point_field_list:
-        #     point_field_name_list.append(field.name)
+        #* Create list of all field names in the point structure shapefile/feature class
+        point_field_name_list = []
+        point_field_list = ListFields(structure_points)
+        for field in point_field_list:
+            point_field_name_list.append(field.name)
 
-        # #* Combine all field names into one long string, to check if substring "Depth" is included
-        # #* If no "Depth" substring/field found, process will terminate with error message
-        # AddMessage("Evaluating if 'Depth' in existing fields")
-        # combined_point_field_list = '\t'.join(point_field_name_list)
-        # if "Depth" not in combined_point_field_list:
-        #     AddError("No depth field in point feature class. Check raster selection or naming")
-        #     return
+        #* Combine all field names into one long string, to check if substring "Depth" is included
+        #* If no "Depth" substring/field found, process will terminate with error message
+        AddMessage("Evaluating if 'Depth' in existing fields")
+        combined_point_field_list = '\t'.join(point_field_name_list)
+        if ("_Depth" not in combined_point_field_list) or ("_ArrivalTime" not in combined_point_field_list) or ("_DV" not in combined_point_field_list):
+            AddError("Be sure point feature class or shapefile has _Depth, _ArrivalTime, and _DV in field or raster names.")
+            return
         
-        # #* Field with "Depth" in name will be assigned "depth_field" variable to be used in clause for subset selection tool
-        # selected_field_list = []
-        # for field in point_field_list:
-        #     if "_Depth" in field.name:
-        #         depth_field = field.name
-        #         AddMessage(f"{depth_field} will be used as to subset the point selection")
-        #         selected_field_list.append(field.name)
-        #     elif "_ArrivalTime" in field.name:
-        #         selected_field_list.append(field.name)
-        #     elif "_DV" in field.name:
-        #         selected_field_list.append(field.name)
-        # selected_field_list = ';'.join(selected_field_list)
-        # AddMessage(selected_field_list)
+        #* This will compile a list of fields that will be selected and field statistics generated for.
+        #* It should find the _Depth, _ArrivalTime, and _DV fields.
+        selected_field_list = []
+        for field in point_field_list:
+            if "_Depth" in field.name:
+                depth_field = field.name
+                AddMessage(f"{depth_field} will be used as to subset the point selection")
+                selected_field_list.append(field.name)
+            elif "_ArrivalTime" in field.name:
+                selected_field_list.append(field.name)
+            elif "_DV" in field.name:
+                selected_field_list.append(field.name)
+        selected_field_list = ';'.join(selected_field_list)
+        AddMessage(selected_field_list)
 
 
-        # for attribute in attribute_list:
-        #     AddMessage(f"The OBJECTID is {attribute}")
-        #     selected_reach = SelectLayerByAttribute(
-        #                         in_layer_or_view=reach_boundaries,
-        #                         selection_type="NEW_SELECTION",
-        #                         where_clause=f"OBJECTID = {attribute}")
+        for attribute in attribute_list:
+            AddMessage(f"The OBJECTID is {attribute}")
+            selected_reach = SelectLayerByAttribute(
+                                in_layer_or_view=reach_boundaries,
+                                selection_type="NEW_SELECTION",
+                                where_clause=f"OBJECTID = {attribute}")
 
-        #     selected_points = SelectLayerByLocation(
-        #                         in_layer=structure_points,
-        #                         overlap_type="COMPLETELY_WITHIN",
-        #                         select_features=selected_reach,
-        #                         selection_type="NEW_SELECTION")
+            selected_points = SelectLayerByLocation(
+                                in_layer=structure_points,
+                                overlap_type="COMPLETELY_WITHIN",
+                                select_features=selected_reach,
+                                selection_type="NEW_SELECTION")
 
-        #     subset_points = SelectLayerByAttribute(
-        #                         in_layer_or_view=selected_points,
-        #                         selection_type="SUBSET_SELECTION",
-        #                         where_clause=f"{depth_field} > 0.1 And {depth_field} IS NOT NULL")
-        #     AddMessage(f"The number of points selected is {GetCount(subset_points)}")
-        #     #* Use field statistics to table to get stats
-        #     FieldStatisticsToTable(subset_points, selected_field_list, input_gdb, f"NUMERIC OBJECTID_{attribute}")
+            subset_points = SelectLayerByAttribute(
+                                in_layer_or_view=selected_points,
+                                selection_type="SUBSET_SELECTION",
+                                where_clause=f"{depth_field} > 0.1 And {depth_field} IS NOT NULL")
+            AddMessage(f"The number of points selected is {GetCount(subset_points)}")
+            #* Use field statistics to table to get stats
+            FieldStatisticsToTable(subset_points, selected_field_list, input_gdb, f"NUMERIC OBJECTID_{attribute}")
 
         #* List tables, loop through tables, extracting necessary info, append to final table/dataframe, export to Excel
+        table_list = ListTables("OBJECT*")
+        unique_id_field_name = "Unique_ID"
+        for table in table_list:
+            field_name_list = []
+            field_list = ListFields(table)
+            for field in field_list:
+                field_name_list.append(field.name)
+            if unique_id_field_name not in field_name_list:
+                AddMessage(f"{unique_id_field_name} field not found in {table}. Adding field...")
+                AddField(table, unique_id_field_name, "TEXT")
+            elif unique_id_field_name in field_name_list:
+                AddMessage(f"{unique_id_field_name} found in {table}")
+
+        for table in table_list:
+            expression = '"' + table + '"'
+            CalculateField(table,unique_id_field_name,expression=expression)
+
         table_list = ListTables("*")
-        # for table in table_list:
+        if "CombinedTable" in table_list:
+            Delete("CombinedTable")
+            AddMessage("Previously existing CombinedTable deleted. Generating new table for output results.")
+        table_list = ListTables("*")
+        table_template = table_list[0]
+        CreateTable(input_gdb,"CombinedTable",table_template)
+        Append(table_list,"CombinedTable","TEST") 
+
+        ExportTable("CombinedTable", out_table=f"{out_table_path}\\OutputDamStats.csv")
 
         return
 
