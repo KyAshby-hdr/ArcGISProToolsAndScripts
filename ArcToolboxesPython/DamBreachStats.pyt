@@ -155,15 +155,13 @@ class dam_breach_tool:
         for field in point_field_list:
             if "_Depth" in field.name:
                 depth_field = field.name
-                AddMessage(f"{depth_field} will be used as to subset the point selection")
+                AddMessage(f"{depth_field} will be used to subset the point selection")
                 selected_field_list.append(field.name)
             elif "_ArrivalTime" in field.name:
                 selected_field_list.append(field.name)
             elif "_DV" in field.name:
                 selected_field_list.append(field.name)
         selected_field_list = ';'.join(selected_field_list)
-        AddMessage(selected_field_list)
-
 
         for attribute in attribute_list:
             AddMessage(f"The OBJECTID is {attribute}")
