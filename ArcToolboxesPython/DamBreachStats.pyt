@@ -11,7 +11,7 @@ from arcpy import (Raster,
                    ListTables,
                    ListFields,
                    )
-from arcpy.sa import ExtractValuesToPoints
+from arcpy.sa import ExtractMultiValuesToPoints
 from arcpy.management import (SelectLayerByAttribute,
                               SelectLayerByLocation,
                               GetCount,
@@ -67,14 +67,6 @@ class dam_breach_tool:
         )
         #TODO Add filter to reach_boundaries parameter to only include polygon shapefiles/feature classes
         #? This can be used eventually to include user specified field names
-        # multipoint_new_fields = Parameter(
-        #    displayName="New point field names",
-        #    name="multipoint_new_fields",
-        #    datatype="GPString",
-        #    parameterType="Required",
-        #    direction="Input",
-        #    multiValue=True
-        #)
         out_table_path = Parameter(
             displayName="Output table save location",
             name="out_table_path",
@@ -82,7 +74,23 @@ class dam_breach_tool:
             parameterType="Required",
             direction="Input"
         )
-        params = [input_gdb, structure_points, reach_boundaries, out_table_path]
+        multipoint_new_fields = Parameter(
+           displayName="New point field names",
+           name="multipoint_new_fields",
+           datatype="GPString",
+           parameterType="Required",
+           direction="Input",
+           multiValue=True
+        )
+        rasters = Parameter(
+            displayName="Input rasters",
+            name="rasters",
+            datatype="GPRasterLayer",
+            parameterType="Required",
+            direction="Input",
+            multiValue=True
+        )
+        params = [input_gdb, structure_points, reach_boundaries, out_table_path, multipoint_new_fields, rasters]
         return params
 
     def isLicensed(self):
@@ -106,10 +114,20 @@ class dam_breach_tool:
         structure_points = parameters[1].valueAsText
         reach_boundaries = parameters[2].valueAsText
         out_table_path = parameters[3].valueAsText
+        multipoint_new_fields = parameters[4].valueAsText
+        rasters = parameters[5].valueAsText
 
-        # #* Set the workspace/geodatabase to pull data
+        #* Set the workspace/geodatabase to pull data
         env.workspace = input_gdb
         AddMessage(f"{input_gdb} is the input gdb")
+
+        AddMessage(rasters)
+        AddMessage(multipoint_new_fields)
+
+        AddMessage("Extracting values to points...")
+        ExtractMultiValuesToPoints(structure_points, rasters)
+        AddMessage("Points extracted")
+
 
         #* Get unique IDs for reach boundaries
         attribute_list = []
@@ -118,14 +136,14 @@ class dam_breach_tool:
                 attribute_list.append(row[0])
 
         #* Create list of all field names in the point structure shapefile/feature class
-        point_field_name_list = []
-        point_field_list = ListFields(structure_points)
-        for field in point_field_list:
-            point_field_name_list.append(field.name)
 
         #* Combine all field names into one long string, to check if substring "Depth" is included
         #* If no "Depth" substring/field found, process will terminate with error message
         AddMessage("Evaluating if 'Depth' in existing fields")
+        point_field_name_list = []
+        point_field_list = ListFields(structure_points)
+        for field in point_field_list:
+            point_field_name_list.append(field.name)
         combined_point_field_list = '\t'.join(point_field_name_list)
         if ("_Depth" not in combined_point_field_list) or ("_ArrivalTime" not in combined_point_field_list) or ("_DV" not in combined_point_field_list):
             AddError("Be sure point feature class or shapefile has _Depth, _ArrivalTime, and _DV in field or raster names.")
