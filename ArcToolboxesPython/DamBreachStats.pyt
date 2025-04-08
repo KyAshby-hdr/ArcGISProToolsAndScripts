@@ -74,14 +74,14 @@ class dam_breach_tool:
             parameterType="Required",
             direction="Input"
         )
-        multipoint_new_fields = Parameter(
-           displayName="New point field names",
-           name="multipoint_new_fields",
-           datatype="GPString",
-           parameterType="Required",
-           direction="Input",
-           multiValue=True
-        )
+        # multipoint_new_fields = Parameter(
+        #    displayName="New point field names",
+        #    name="multipoint_new_fields",
+        #    datatype="GPString",
+        #    parameterType="Required",
+        #    direction="Input",
+        #    multiValue=True
+        # )
         rasters = Parameter(
             displayName="Input rasters",
             name="rasters",
@@ -90,7 +90,7 @@ class dam_breach_tool:
             direction="Input",
             multiValue=True
         )
-        params = [input_gdb, structure_points, reach_boundaries, out_table_path, multipoint_new_fields, rasters]
+        params = [input_gdb, structure_points, reach_boundaries, out_table_path, rasters]
         return params
 
     def isLicensed(self):
@@ -114,15 +114,15 @@ class dam_breach_tool:
         structure_points = parameters[1].valueAsText
         reach_boundaries = parameters[2].valueAsText
         out_table_path = parameters[3].valueAsText
-        multipoint_new_fields = parameters[4].valueAsText
-        rasters = parameters[5].valueAsText
+        # multipoint_new_fields = parameters[4].valueAsText
+        rasters = parameters[4].valueAsText
 
         #* Set the workspace/geodatabase to pull data
         env.workspace = input_gdb
         AddMessage(f"{input_gdb} is the input gdb")
 
         AddMessage(rasters)
-        AddMessage(multipoint_new_fields)
+        # AddMessage(multipoint_new_fields)
 
         AddMessage("Extracting values to points...")
         ExtractMultiValuesToPoints(structure_points, rasters)
