@@ -37,7 +37,8 @@ This is a Python toolbox, which currently holds the following tools:
 #### Dam Breach Stats
 This tool can process statistics for multiple dam breach scenarios. Important information for using this tool can be found below:
 1. It is recommended that the spatial point data for the structures be saved as a feature class in a geodatabase. Shapefiles have limitations that prevent the tool from working as intended.
-2. For each scenario, raster names should include "_Depth", "_ArrivalTime", and "_DV". Text can be included before or after. The names just need to include the text in each raster, respectively. The tool will throw an error otherwise.
-3. The tool will export a .csv file titled "OutputDamStats.csv". This contains the statistics data for the dam breach scenario.
+2. When using the tool, be sure the spatial point data being used in the tool is not included on the working map. You can select the point spatial data by navigating to the geodatabase where the spatial data is stored. Selecting the linked data in the map using the dropdown menu will cause the tool to fail.
+3. For each scenario, raster names should include "_Depth", "_ArrivalTime", and "_DV". Text can be included before or after. The names just need to include the text in each raster, respectively. The tool will throw an error otherwise.
+4. The tool will export a .csv file titled "OutputDamStats.csv". This contains the statistics data for the dam breach scenario.
 
 If you have any questions or problems using the tools described above, please reach out to Kyler Ashby
