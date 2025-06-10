@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import pandas as pd
 from arcpy import (Raster,
                    ListFields,
                    Parameter,
@@ -114,15 +114,12 @@ class dam_breach_tool:
         structure_points = parameters[1].valueAsText
         reach_boundaries = parameters[2].valueAsText
         out_table_path = parameters[3].valueAsText
-        # multipoint_new_fields = parameters[4].valueAsText
         rasters = parameters[4].valueAsText
 
         #* Set the workspace/geodatabase to pull data
         env.workspace = input_gdb
         AddMessage(f"{input_gdb} is the input gdb")
 
-        AddMessage(rasters)
-        # AddMessage(multipoint_new_fields)
 
         AddMessage("Extracting values to points...")
         ExtractMultiValuesToPoints(structure_points, rasters)
@@ -130,10 +127,16 @@ class dam_breach_tool:
 
 
         #* Get unique IDs for reach boundaries
-        attribute_list = []
+        object_id_list = []
         with SearchCursor(reach_boundaries, ["OBJECTID"]) as cursor:
             for row in cursor:
-                attribute_list.append(row[0])
+                object_id_list.append(row[0])
+        
+        dv_threshold_expression_list = [
+            "DV_0_to_less_than_50",
+            "DV_50_to_less_than_160",
+            "DV_greater_than_160",
+        ]
 
         #* Create list of all field names in the point structure shapefile/feature class
 
@@ -155,63 +158,153 @@ class dam_breach_tool:
         for field in point_field_list:
             if "_Depth" in field.name:
                 depth_field = field.name
-                AddMessage(f"{depth_field} will be used to subset the point selection")
                 selected_field_list.append(field.name)
             elif "_ArrivalTime" in field.name:
                 selected_field_list.append(field.name)
             elif "_DV" in field.name:
+                dv_field = field.name
                 selected_field_list.append(field.name)
         selected_field_list = ';'.join(selected_field_list)
 
-        for attribute in attribute_list:
-            AddMessage(f"The OBJECTID is {attribute}")
-            selected_reach = SelectLayerByAttribute(
-                                in_layer_or_view=reach_boundaries,
-                                selection_type="NEW_SELECTION",
-                                where_clause=f"OBJECTID = {attribute}")
+        dv_threshold_list = [
+            f"{dv_field} >= 0 And {dv_field} < 50",
+            f"{dv_field} >= 50 And {dv_field} < 160",
+            f"{dv_field} >= 160",
+        ]
 
-            selected_points = SelectLayerByLocation(
-                                in_layer=structure_points,
-                                overlap_type="COMPLETELY_WITHIN",
-                                select_features=selected_reach,
-                                selection_type="NEW_SELECTION")
+        for object_id in object_id_list:
+            AddMessage(f"Reach with OBJECTID {object_id} selected")
+            for dv_expression in dv_threshold_list:
+                selected_reach = SelectLayerByAttribute(
+                                    in_layer_or_view=reach_boundaries,
+                                    selection_type="NEW_SELECTION",
+                                    where_clause=f"OBJECTID = {object_id}")
 
-            subset_points = SelectLayerByAttribute(
-                                in_layer_or_view=selected_points,
-                                selection_type="SUBSET_SELECTION",
-                                where_clause=f"{depth_field} > 0.1 And {depth_field} IS NOT NULL")
-            AddMessage(f"The number of points selected is {GetCount(subset_points)}")
-            #* Use field statistics to table to get stats
-            FieldStatisticsToTable(subset_points, selected_field_list, input_gdb, f"NUMERIC OBJECTID_{attribute}")
+                selected_points = SelectLayerByLocation(
+                                    in_layer=structure_points,
+                                    overlap_type="COMPLETELY_WITHIN",
+                                    select_features=selected_reach,
+                                    selection_type="NEW_SELECTION"
+                                    )
 
-        #* List tables, loop through tables, extracting necessary info, append to final table/dataframe, export to Excel
-        table_list = ListTables("OBJECT*")
-        unique_id_field_name = "Unique_ID"
+                subset_points = SelectLayerByAttribute(
+                        in_layer_or_view=selected_points,
+                        selection_type="SUBSET_SELECTION",
+                        where_clause=f"{depth_field} > 0.1 And {depth_field} IS NOT NULL")
+
+                dv_subset_points = SelectLayerByAttribute(
+                        in_layer_or_view=subset_points,
+                        selection_type="SUBSET_SELECTION",
+                        where_clause=dv_expression
+                    )
+                AddMessage(f"The number of points selected is {GetCount(subset_points)}")
+                #* Use field statistics to table to get stats
+                if dv_expression == f"{dv_field} >= 0 And {dv_field} < 50":
+                    out_tables_expression = dv_threshold_expression_list[0]
+                elif dv_expression == f"{dv_field} >= 50 And {dv_field} < 160":
+                    out_tables_expression = dv_threshold_expression_list[1]
+                elif dv_expression == f"{dv_field} >= 160":
+                    out_tables_expression = dv_threshold_expression_list[2]
+                FieldStatisticsToTable(
+                    in_table=dv_subset_points,
+                    in_fields=selected_field_list,
+                    out_location=input_gdb,
+                    out_tables=f"NUMERIC REACH_ID_{object_id}_{out_tables_expression}"
+                )
+        
+        table_list = ListTables("REACH_ID*")
+        table_name_field = "Table_Name"
         for table in table_list:
             field_name_list = []
             field_list = ListFields(table)
             for field in field_list:
                 field_name_list.append(field.name)
-            if unique_id_field_name not in field_name_list:
-                AddMessage(f"{unique_id_field_name} field not found in {table}. Adding field...")
-                AddField(table, unique_id_field_name, "TEXT")
-            elif unique_id_field_name in field_name_list:
-                AddMessage(f"{unique_id_field_name} found in {table}")
-
+            if table_name_field not in field_name_list:
+                AddField(
+                    in_table=table,
+                    field_name=table_name_field,
+                    field_type="TEXT"
+                )
+        
         for table in table_list:
-            expression = '"' + table + '"'
-            CalculateField(table,unique_id_field_name,expression=expression)
-
+            CalculateField(
+                in_table=table,
+                field=table_name_field,
+                expression='"' + table + '"'
+                )
+        # #* List tables, loop through tables, extracting necessary info, append to final table/dataframe, export to Excel
         table_list = ListTables("*")
         if "CombinedTable" in table_list:
             Delete("CombinedTable")
             AddMessage("Previously existing CombinedTable deleted. Generating new table for output results.")
         table_list = ListTables("*")
         table_template = table_list[0]
-        CreateTable(input_gdb,"CombinedTable",table_template)
-        Append(table_list,"CombinedTable","TEST") 
+        CreateTable(
+            out_path=input_gdb,
+            out_name="CombinedTable",
+            template=table_template
+        )
+        Append(
+            inputs=table_list,
+            target="CombinedTable",
+            schema_type="TEST"
+        )
+
 
         ExportTable("CombinedTable", out_table=f"{out_table_path}\\OutputDamStats.csv")
+        AddMessage(f"CSV file exported to {out_table_path}\\OutputDamStats.csv")
+        AddMessage(f"Processing CSV output...")
+
+        df = pd.read_csv(f"{out_table_path}\\OutputDamStats.csv")
+        df = df.rename(
+            columns={
+                "Count": "# of structures",
+            }
+        )
+
+        delete_column_names = [
+            "Alias",
+            "FieldType",
+            "Nulls",
+            "Minimum",
+            "Maximum",
+            "Mean",
+            "StandardDeviation",
+            "Median",
+            "NumberofUniqueValues",
+            "Mode",
+            "LeastCommon",
+            "Outliers",
+            "Sum",
+            "Range",
+            "InterquartileRange",
+            "CoefficientofVariation",
+            "Skewness",
+            "Kurtosis",
+        ]
+
+        df = df.drop(delete_column_names, axis=1)
+        df["REACH_ID"] = None
+        df["DV_THRESHOLD"] = None
+        for object_id in object_id_list:
+            for dv_threshold in dv_threshold_expression_list:
+                if dv_threshold == "DV_0_to_less_than_50":
+                    dv_threshold_num = "0 <= DV < 50"
+                if dv_threshold == "DV_50_to_less_than_160":
+                    dv_threshold_num = "50 <= DV < 160"
+                if dv_threshold == "DV_greater_than_160":
+                    dv_threshold_num = "DV > 160"
+                df.loc[df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}", "REACH_ID"] = object_id
+                df.loc[df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}", "DV_THRESHOLD"] = dv_threshold_num
+        df = df.drop("Table_Name", axis=1)
+        col = df.pop("REACH_ID")
+        col2 = df.pop("DV_THRESHOLD")
+        df.insert(1, "REACH_ID", col)
+        df.insert(2, "DV_THRESHOLD", col2)
+        df["PAR_2AM"] = ""
+        df["PAR_2PM"] = ""
+        df.to_csv(f"{out_table_path}\\OutputDamStatsEdit.csv")
+        AddMessage(f"New CSV file exported to {out_table_path}\\OutputDamStatsEdit.csv ")
 
         return
 
