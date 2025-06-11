@@ -57,7 +57,6 @@ class dam_breach_tool:
             parameterType="Required",
             direction="Input"
         )
-        #TODO Add filter to structure_points parameter to only include point shapefiles/feature classes
         reach_boundaries = Parameter(
             displayName="Reach boundaries",
             name="reach_boundaries",
@@ -65,8 +64,6 @@ class dam_breach_tool:
             parameterType="Required",
             direction="Input"
         )
-        #TODO Add filter to reach_boundaries parameter to only include polygon shapefiles/feature classes
-        #? This can be used eventually to include user specified field names
         out_table_path = Parameter(
             displayName="Output table save location",
             name="out_table_path",
@@ -74,14 +71,6 @@ class dam_breach_tool:
             parameterType="Required",
             direction="Input"
         )
-        # multipoint_new_fields = Parameter(
-        #    displayName="New point field names",
-        #    name="multipoint_new_fields",
-        #    datatype="GPString",
-        #    parameterType="Required",
-        #    direction="Input",
-        #    multiValue=True
-        # )
         rasters = Parameter(
             displayName="Input rasters",
             name="rasters",
@@ -90,7 +79,19 @@ class dam_breach_tool:
             direction="Input",
             multiValue=True
         )
-        params = [input_gdb, structure_points, reach_boundaries, out_table_path, rasters]
+        run_extract_multivalues = Parameter(
+            displayName="Extract raster values to points?",
+            name="run_extract_multivalues",
+            datatype="GPBoolean",
+            parameterType="Optional",
+        )
+        params = [input_gdb,
+                  structure_points,
+                  reach_boundaries,
+                  out_table_path,
+                  rasters,
+                  run_extract_multivalues
+                  ]
         return params
 
     def isLicensed(self):
@@ -115,15 +116,19 @@ class dam_breach_tool:
         reach_boundaries = parameters[2].valueAsText
         out_table_path = parameters[3].valueAsText
         rasters = parameters[4].valueAsText
+        run_extract_multivalues = parameters[5].value
 
         #* Set the workspace/geodatabase to pull data
         env.workspace = input_gdb
         AddMessage(f"{input_gdb} is the input gdb")
 
 
-        AddMessage("Extracting values to points...")
-        ExtractMultiValuesToPoints(structure_points, rasters)
-        AddMessage("Points extracted")
+        if run_extract_multivalues:
+            AddMessage("Extracting values to points...")
+            ExtractMultiValuesToPoints(structure_points, rasters)
+            AddMessage("Points extracted")
+        elif not run_extract_multivalues:
+            AddMessage(f"Skipping extracting multivalues to points")
 
 
         #* Get unique IDs for reach boundaries
@@ -163,6 +168,8 @@ class dam_breach_tool:
                 selected_field_list.append(field.name)
             elif "_DV" in field.name:
                 dv_field = field.name
+                selected_field_list.append(field.name)
+            elif "Pop2" in field.name:
                 selected_field_list.append(field.name)
         selected_field_list = ';'.join(selected_field_list)
 
@@ -209,27 +216,36 @@ class dam_breach_tool:
                     in_table=dv_subset_points,
                     in_fields=selected_field_list,
                     out_location=input_gdb,
-                    out_tables=f"NUMERIC REACH_ID_{object_id}_{out_tables_expression}"
+                    out_tables=f"NUMERIC REACH_ID_{object_id}_{out_tables_expression}",
+                    out_statistics= "ALIAS Alias;COUNT Count;FIRSTQUARTILE FirstQuartile;SUM Sum;THIRDQUARTILE ThirdQuartile"
                 )
         
         table_list = ListTables("REACH_ID*")
-        table_name_field = "Table_Name"
+        new_field_list = ["Table_Name", "PAR_2AM", "PAR_2PM"]
         for table in table_list:
             field_name_list = []
             field_list = ListFields(table)
             for field in field_list:
                 field_name_list.append(field.name)
-            if table_name_field not in field_name_list:
-                AddField(
-                    in_table=table,
-                    field_name=table_name_field,
-                    field_type="TEXT"
-                )
+            for new_field in new_field_list:
+                if new_field not in field_name_list:
+                    if new_field == "Table_Name":
+                        AddField(
+                            in_table=table,
+                            field_name=new_field,
+                            field_type="TEXT"
+                        )
+                    else:
+                        AddField(
+                            in_table=table,
+                            field_name=new_field,
+                            field_type="LONG"
+                        )
         
         for table in table_list:
             CalculateField(
                 in_table=table,
-                field=table_name_field,
+                field="Table_Name",
                 expression='"' + table + '"'
                 )
         # #* List tables, loop through tables, extracting necessary info, append to final table/dataframe, export to Excel
@@ -250,40 +266,19 @@ class dam_breach_tool:
             schema_type="TEST"
         )
 
-
         ExportTable("CombinedTable", out_table=f"{out_table_path}\\OutputDamStats.csv")
         AddMessage(f"CSV file exported to {out_table_path}\\OutputDamStats.csv")
+
+        #* Pandas processing
         AddMessage(f"Processing CSV output...")
 
         df = pd.read_csv(f"{out_table_path}\\OutputDamStats.csv")
         df = df.rename(
             columns={
                 "Count": "# of structures",
+                "Alias": "Field"
             }
         )
-
-        delete_column_names = [
-            "Alias",
-            "FieldType",
-            "Nulls",
-            "Minimum",
-            "Maximum",
-            "Mean",
-            "StandardDeviation",
-            "Median",
-            "NumberofUniqueValues",
-            "Mode",
-            "LeastCommon",
-            "Outliers",
-            "Sum",
-            "Range",
-            "InterquartileRange",
-            "CoefficientofVariation",
-            "Skewness",
-            "Kurtosis",
-        ]
-
-        df = df.drop(delete_column_names, axis=1)
         df["REACH_ID"] = None
         df["DV_THRESHOLD"] = None
         for object_id in object_id_list:
@@ -296,13 +291,23 @@ class dam_breach_tool:
                     dv_threshold_num = "DV > 160"
                 df.loc[df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}", "REACH_ID"] = object_id
                 df.loc[df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}", "DV_THRESHOLD"] = dv_threshold_num
+                morning_pop_sum = df.loc[((df["Field"] == "Pop2amU65") | (df["Field"] == "Pop2amO65")) & (df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}"),"Sum"].sum()
+                df.loc[df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}","PAR_2AM"] = morning_pop_sum
+                afternoon_pop_sum = df.loc[((df["Field"] == "Pop2pmU65") | (df["Field"] == "Pop2pmO65")) & (df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}"),"Sum"].sum()
+                df.loc[df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}","PAR_2PM"] = afternoon_pop_sum
         df = df.drop("Table_Name", axis=1)
+        df = df.drop("Sum", axis=1)
         col = df.pop("REACH_ID")
         col2 = df.pop("DV_THRESHOLD")
         df.insert(1, "REACH_ID", col)
         df.insert(2, "DV_THRESHOLD", col2)
-        df["PAR_2AM"] = ""
-        df["PAR_2PM"] = ""
+        field_drop_list = [
+            "Pop2amU65",
+            "Pop2amO65",
+            "Pop2pmU65",
+            "Pop2pmO65",
+        ]
+        df = df[df.Field.isin(field_drop_list) == False]
         df.to_csv(f"{out_table_path}\\OutputDamStatsEdit.csv")
         AddMessage(f"New CSV file exported to {out_table_path}\\OutputDamStatsEdit.csv ")
 
