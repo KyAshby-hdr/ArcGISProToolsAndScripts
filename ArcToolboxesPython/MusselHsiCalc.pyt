@@ -149,6 +149,17 @@ class mussel_hsi_calc:
 
         AddMessage(f"{input_gdb} is the input gdb")
 
+        if float(coefficient_of_variation) <= 0.9:
+            coefficient_of_variation_hsi = 1
+        elif (float(coefficient_of_variation) > 0.9) and (float(coefficient_of_variation) <= 1.05):
+            coefficient_of_variation_hsi = 0.75
+        elif (float(coefficient_of_variation) > 1.05) and (float(coefficient_of_variation) <= 1.15):
+            coefficient_of_variation_hsi = 0.6
+        elif float(coefficient_of_variation) > 1.15:
+            coefficient_of_variation_hsi = 0.3
+        
+        AddMessage(f"With a coefficient of variation value of {coefficient_of_variation}, the HSI value is {coefficient_of_variation_hsi}")
+
         raster_list = ListRasters("*")
         depth_rasters = []
         velocity_rasters = []
@@ -161,10 +172,11 @@ class mussel_hsi_calc:
         
         AddMessage(f"Depth Rasters:{depth_rasters}")
         AddMessage(f"Velocity Rasters:{velocity_rasters}")
-
         
         #* This code block pairs the velocity and depth rasters
-        #* The raster names should have a unique identifier (i.e. "High", "6500", "6500cfs") that is separated by an underscore
+        #* The raster names should follow this basic naming formulas to ensure the code works as intended:
+        #* RasterNameText_UNIQUEID or UNIQUEID_RasterNameText
+        #* The unique ID can be text or numbers, making sure that the unique IDs match for velocity and depth pairs.
         unique_id_list = []
         dep_vel_ras_pairs_dict = {}
         for dep_ras in depth_rasters:
@@ -255,7 +267,7 @@ class mussel_hsi_calc:
                         final_hsi_raster = RasterCalculator(
                             rasters=[vel_ras_hsi, morph_unit_ras_hsi, fish_cover_hsi_raster, substrate_hsi_raster, percent_silt_hsi_raster],
                             input_names=["vel_ras_hsi", "morph_unit_ras_hsi", "fish_cover_hsi_raster", "substrate_hsi_raster", "percent_silt_hsi_raster"],
-                            expression=f"({coefficient_of_variation} + morph_unit_ras_hsi + fish_cover_hsi_raster + vel_ras_hsi + substrate_hsi_raster + percent_silt_hsi_raster) / 6"
+                            expression=f"({coefficient_of_variation_hsi} + morph_unit_ras_hsi + fish_cover_hsi_raster + vel_ras_hsi + substrate_hsi_raster + percent_silt_hsi_raster) / 6"
                         )
                         AddMessage(f"Saving WesternPearl_HSI_{unique_id}")
                         final_hsi_raster.save(f"{output_gdb}\\WesternPearl_HSI_{unique_id}")
@@ -264,7 +276,7 @@ class mussel_hsi_calc:
                         final_hsi_raster = RasterCalculator(
                             rasters=[morph_unit_ras_hsi],
                             input_names=["morph_unit_ras_hsi"],
-                            expression=f"({coefficient_of_variation} + morph_unit_ras_hsi) / 2"
+                            expression=f"({coefficient_of_variation_hsi} + morph_unit_ras_hsi) / 2"
                         )
                         AddMessage(f"Saving CaliFloater_HSI_{unique_id}")
                         final_hsi_raster.save(f"{output_gdb}\\CaliFloater_HSI_{unique_id}")
@@ -273,14 +285,14 @@ class mussel_hsi_calc:
                         final_hsi_raster = RasterCalculator(
                             rasters=[vel_ras_hsi, morph_unit_ras_hsi, fish_cover_hsi_raster, substrate_hsi_raster, percent_silt_hsi_raster],
                             input_names=["vel_ras_hsi", "morph_unit_ras_hsi", "fish_cover_hsi_raster", "substrate_hsi_raster", "percent_silt_hsi_raster"],
-                            expression=f"({coefficient_of_variation} + morph_unit_ras_hsi + fish_cover_hsi_raster + vel_ras_hsi + substrate_hsi_raster + percent_silt_hsi_raster) / 6"
+                            expression=f"({coefficient_of_variation_hsi} + morph_unit_ras_hsi + fish_cover_hsi_raster + vel_ras_hsi + substrate_hsi_raster + percent_silt_hsi_raster) / 6"
                         )
                         AddMessage(f"Saving WesternPearl_HSI_{unique_id}")
                         final_hsi_raster.save(f"{output_gdb}\\WesternPearl_HSI_{unique_id}")
                         final_hsi_raster = RasterCalculator(
                             rasters=[morph_unit_ras_hsi],
                             input_names=["morph_unit_ras_hsi"],
-                            expression=f"({coefficient_of_variation} + morph_unit_ras_hsi) / 2"
+                            expression=f"({coefficient_of_variation_hsi} + morph_unit_ras_hsi) / 2"
                         )
                         AddMessage(f"Saving CaliFloater_HSI_{unique_id}")
                         final_hsi_raster.save(f"{output_gdb}\\CaliFloater_HSI_{unique_id}")
