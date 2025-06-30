@@ -48,7 +48,7 @@ class mussel_hsi_calc:
             direction="Input"
         )
 
-        input_gdb.filter.list = ["Local Database"]
+        input_gdb.filter.list = ["Local Database", "File System", "Remote Database"]
 
         output_gdb = Parameter(
             displayName="Specify output gdb",
@@ -57,6 +57,8 @@ class mussel_hsi_calc:
             parameterType="Required",
             direction="Input"
         )
+
+        output_gdb.filter.list = ["Local Database", "File System", "Remote Database"]
 
         coefficient_of_variation = Parameter(
             displayName="Specify coefficient of variation",
@@ -175,8 +177,9 @@ class mussel_hsi_calc:
         
         #* This code block pairs the velocity and depth rasters
         #* The raster names should follow this basic naming formulas to ensure the code works as intended:
-        #* RasterNameText_UNIQUEID or UNIQUEID_RasterNameText
+        #* DepthOrVelocityRasterNameText_UniqueId or UniqueId_DepthOrVelocityRasterNameText
         #* The unique ID can be text or numbers, making sure that the unique IDs match for velocity and depth pairs.
+        #* Be sure to include "Depth" or "Velocity" (can be upper or lowercase) somewhere in the raster name text
         unique_id_list = []
         dep_vel_ras_pairs_dict = {}
         for dep_ras in depth_rasters:
