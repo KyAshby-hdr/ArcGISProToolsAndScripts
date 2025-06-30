@@ -1,3 +1,5 @@
 *.vscode
 *.xml
-QuickTest.py
+*.csv
+*.txt
+*.ipynb
