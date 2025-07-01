@@ -1,16 +1,14 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
-from arcpy import (Raster,
-                   ListFields,
-                   Parameter,
-                   ListRasters,
-                   AddMessage,
-                   env,
-                   SetProgressorLabel,
-                   AddError,
-                   ListTables,
-                   ListFields,
-                   )
+from arcpy import (
+                ListFields,
+                Parameter,
+                AddMessage,
+                env,
+                AddError,
+                ListTables,
+                ListFields,
+                )
 from arcpy.sa import ExtractMultiValuesToPoints
 from arcpy.management import (SelectLayerByAttribute,
                               SelectLayerByLocation,
@@ -169,7 +167,7 @@ class dam_breach_tool:
             elif "_DV" in field.name:
                 dv_field = field.name
                 selected_field_list.append(field.name)
-            elif "Pop2" in field.name:
+            elif "pop2" in field.name:
                 selected_field_list.append(field.name)
         selected_field_list = ';'.join(selected_field_list)
 
@@ -291,9 +289,9 @@ class dam_breach_tool:
                     dv_threshold_num = "DV > 160"
                 df.loc[df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}", "REACH_ID"] = object_id
                 df.loc[df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}", "DV_THRESHOLD"] = dv_threshold_num
-                morning_pop_sum = df.loc[((df["Field"] == "Pop2amU65") | (df["Field"] == "Pop2amO65")) & (df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}"),"Sum"].sum()
+                morning_pop_sum = df.loc[((df["Field"] == "pop2amu65") | (df["Field"] == "pop2amo65")) & (df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}"),"Sum"].sum()
                 df.loc[df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}","PAR_2AM"] = morning_pop_sum
-                afternoon_pop_sum = df.loc[((df["Field"] == "Pop2pmU65") | (df["Field"] == "Pop2pmO65")) & (df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}"),"Sum"].sum()
+                afternoon_pop_sum = df.loc[((df["Field"] == "pop2pmu65") | (df["Field"] == "pop2pmo65")) & (df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}"),"Sum"].sum()
                 df.loc[df["Table_Name"] == f"REACH_ID_{object_id}_{dv_threshold}","PAR_2PM"] = afternoon_pop_sum
         df = df.drop("Table_Name", axis=1)
         df = df.drop("Sum", axis=1)
@@ -302,14 +300,14 @@ class dam_breach_tool:
         df.insert(1, "REACH_ID", col)
         df.insert(2, "DV_THRESHOLD", col2)
         field_drop_list = [
-            "Pop2amU65",
-            "Pop2amO65",
-            "Pop2pmU65",
-            "Pop2pmO65",
+            "pop2amu65",
+            "pop2amo65",
+            "pop2pmu65",
+            "pop2pmo65",
         ]
         df = df[df.Field.isin(field_drop_list) == False]
         df.to_csv(f"{out_table_path}\\OutputDamStatsEdit.csv")
-        AddMessage(f"New CSV file exported to {out_table_path}\\OutputDamStatsEdit.csv ")
+        AddMessage(f"New CSV file exported to {out_table_path}\\OutputDamStatsEdit.csv")
 
         return
 
