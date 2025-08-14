@@ -145,15 +145,16 @@ class dam_breach_tool:
 
         #* Combine all field names into one long string, to check if substring "Depth" is included
         #* If no "Depth" substring/field found, process will terminate with error message
-        AddMessage("Evaluating if 'Depth' in existing fields")
+        AddMessage("Checking if field names exist in point feature class...")
         point_field_name_list = []
         point_field_list = ListFields(structure_points)
         for field in point_field_list:
             point_field_name_list.append(field.name)
         combined_point_field_list = '\t'.join(point_field_name_list)
         if ("_Depth" not in combined_point_field_list) or ("_ArrivalTime" not in combined_point_field_list) or ("_DV" not in combined_point_field_list):
-            AddError("Be sure point feature class or shapefile has _Depth, _ArrivalTime, and _DV in field or raster names.")
+            AddError("Needed fields not found. Check input raster names and make sure they include *_Depth, *_DV, and *_ArrivalTime")
             return
+        AddMessage("Field names check passed")
         
         #* This will compile a list of fields that will be selected and field statistics generated for.
         #* It should find the _Depth, _ArrivalTime, and _DV fields.
