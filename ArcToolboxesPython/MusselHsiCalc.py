@@ -92,7 +92,7 @@ def script_tool(
     seasonal_high_flow_vel_ras_hsi = RasterCalculator(
         rasters=[seasonal_high_flow_velocity_raster],
         input_names=["seasonal_high_flow_velocity_raster"],
-        expression="Con(vel_ras <= 3.281,1,0.5)",
+        expression="Con(seasonal_high_flow_velocity_raster <= 3.281,1,0.5)",
     )
     AddMessage(f"Saving SeasHighFlowVelRas_HSI raster")
     seasonal_high_flow_vel_ras_hsi.save(f"{output_gdb}\\SeasHighFlowVelRas_HSI")
@@ -158,7 +158,6 @@ def script_tool(
     for unique_id in unique_id_list:
         for morph_unit_ras_hsi in morph_unit_ras_hsi_list:
             if (unique_id.lower() in morph_unit_ras_hsi.lower()) and ("pearlshell" in morph_unit_ras_hsi.lower()) and (western_pearlshell_option and not california_floater_option):
-                AddMessage(f"Calculating only WesternPearl_HSI_{unique_id}")
                 final_hsi_raster = RasterCalculator(
                     rasters=[seas_high_flow_hsi_ras, morph_unit_ras_hsi, fish_cover_hsi_raster, substrate_hsi_raster, percent_silt_hsi_raster],
                     input_names=["seas_high_flow_hsi_ras", "morph_unit_ras_hsi", "fish_cover_hsi_raster", "substrate_hsi_raster", "percent_silt_hsi_raster"],
@@ -167,7 +166,6 @@ def script_tool(
                 AddMessage(f"Saving WesternPearl_HSI_{unique_id}")
                 final_hsi_raster.save(f"{output_gdb}\\WesternPearl_HSI_{unique_id}")
             elif (unique_id.lower() in morph_unit_ras_hsi.lower()) and ("califloat" in morph_unit_ras_hsi.lower()) and (california_floater_option and not western_pearlshell_option):
-                AddMessage(f"Calculating only CaliFloater_HSI_{unique_id}")
                 final_hsi_raster = RasterCalculator(
                     rasters=[morph_unit_ras_hsi],
                     input_names=["morph_unit_ras_hsi"],
@@ -176,7 +174,6 @@ def script_tool(
                 AddMessage(f"Saving CaliFloater_HSI_{unique_id}")
                 final_hsi_raster.save(f"{output_gdb}\\CaliFloater_HSI_{unique_id}")
             elif (unique_id.lower() in morph_unit_ras_hsi.lower()) and (western_pearlshell_option and california_floater_option):
-                AddMessage(f"Calculating WesternPearl_HSI_{unique_id} and CaliFloater_HSI_{unique_id}")
                 if ("pearlshell" in morph_unit_ras_hsi.lower()):
                     final_hsi_raster = RasterCalculator(
                         rasters=[seas_high_flow_hsi_ras, morph_unit_ras_hsi, fish_cover_hsi_raster, substrate_hsi_raster, percent_silt_hsi_raster],
@@ -194,7 +191,8 @@ def script_tool(
                     AddMessage(f"Saving CaliFloater_HSI_{unique_id}")
                     final_hsi_raster.save(f"{output_gdb}\\CaliFloater_HSI_{unique_id}")
 
-    final_hsi_raster_list = ListRasters("*_HSI_*")
+    hsi_raster_list = ListRasters("*_HSI_*")
+    final_hsi_raster_list = [ras for ras in hsi_raster_list if "morphunit" not in ras.lower()]
     for hsi_ras in final_hsi_raster_list:
         AddMessage(f"Calculating {hsi_ras}_Stats")
         ZonalStatisticsAsTable(
