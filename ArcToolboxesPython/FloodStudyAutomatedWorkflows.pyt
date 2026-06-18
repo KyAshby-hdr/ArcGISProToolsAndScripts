@@ -21,6 +21,7 @@ from arcpy.cartography import (
 from arcpy.management import (
     MultipartToSinglepart,
     SelectLayerByAttribute,
+    EliminatePolygonPart
 )
 from arcpy.conversion import (
     ExportFeatures
@@ -53,43 +54,31 @@ class evacuation_boundary_generator:
             direction="Input"
         )
 
-        aggregate_polygons_distance = Parameter(
-            displayName="Aggregate polygons distance",
-            name="aggregate_polygons_distance",
-            datatype="Long",
-            parameterType="Required",
-            direction="Input"
-        )
-        aggregate_unit = Parameter(
-            displayName="Aggregate distance unit",
-            name="aggregate_unit",
-            datatype="GPString",
-            parameterType="Required",
-            direction="Input"
-        )
-
-        aggregate_unit.filter.type = "ValueList"
-
-        aggregate_unit.filter.list = ["Feet", "Miles"]
-
-        aggregate_hole_size = Parameter(
-            displayName="Minimum aggregate hole size",
+        eliminate_polygon_area_size = Parameter(
+            displayName="Minimum polygon area to remove polygon parts (holes and polygons)",
             name="aggregate_hole_size",
             datatype="Double",
             parameterType="Required",
             direction="Input"
         )
-        hole_size_unit = Parameter(
-            displayName="Hole size unit",
-            name="hole_size_unit",
+        eliminate_polygon_area_unit = Parameter(
+            displayName="Area unit for removing polygon parts",
+            name="eliminate_polygon_area_unit",
             datatype="GPString",
             parameterType="Required",
             direction="Input"
         )
 
-        hole_size_unit.filter.type = "ValueList"
+        eliminate_polygon_area_unit.filter.type = "ValueList"
 
-        hole_size_unit.filter.list = ["SquareFeetUS", "AcresUS", "SquareMilesUS"]
+        eliminate_polygon_area_unit.filter.list = ["SquareFeetUS", "AcresUS", "SquareMilesUS"]
+
+        eliminate_polygon_area_contained_parts = Parameter(
+            displayName="Eliminate contained parts only",
+            name="eliminate_polygon_area_contained_parts",
+            datatype="Boolean",
+            parameterType="Optional"
+        )
 
         buffer_distance = Parameter(
             displayName="Buffer distance",
@@ -121,10 +110,9 @@ class evacuation_boundary_generator:
 
         params = [
             input_inundation_boundary,
-            aggregate_polygons_distance,
-            aggregate_unit,
-            aggregate_hole_size,
-            hole_size_unit,
+            eliminate_polygon_area_size,
+            eliminate_polygon_area_unit,
+            eliminate_polygon_area_contained_parts,
             buffer_distance,
             buffer_unit,
             output_gdb,
@@ -149,34 +137,61 @@ class evacuation_boundary_generator:
     def execute(self, parameters, messages):
         """The source code of the tool."""
         input_inundation_boundary = parameters[0].valueAsText
-        aggregate_polygons_distance = parameters[1].valueAsText
-        aggregate_unit = parameters[2].valueAsText
-        aggregate_hole_size = parameters[3].valueAsText
-        hole_size_unit = parameters[4].valueAsText
-        buffer_distance = parameters[5].valueAsText
-        buffer_unit = parameters[6].valueAsText
-        output_gdb = parameters[7].valueAsText
+        eliminate_polygon_area_size = parameters[1].valueAsText
+        eliminate_polygon_area_unit = parameters[2].valueAsText
+        eliminate_polygon_area_contained_parts = parameters[3].valueAsText
+        buffer_distance = parameters[4].valueAsText
+        buffer_unit = parameters[5].valueAsText
+        output_gdb = parameters[6].valueAsText
 
         env.workspace = output_gdb
         AddMessage(f"{output_gdb} is the output gdb")
 
-        AddMessage(f"Aggregating polygons within {aggregate_polygons_distance} {aggregate_unit}, removing holes less than {aggregate_hole_size} {hole_size_unit}")
-        aggregate_polygons_fc  = AggregatePolygons(
+        if eliminate_polygon_area_contained_parts:
+            part_option = "CONTAINED_ONLY"
+            eliminate_polygon_area_message = "contained parts only"
+        else:
+            part_option = "ANY"
+            eliminate_polygon_area_message = "all parts"
+
+        AddMessage(f"Removing {eliminate_polygon_area_message} from inundation polygon with an area less than {eliminate_polygon_area_size} {eliminate_polygon_area_unit}...")
+        eliminate_polygon_part_fc = EliminatePolygonPart(
             in_features=input_inundation_boundary,
-            out_feature_class=f"{output_gdb}\\AggregatePolygons",
-            aggregation_distance=f"{aggregate_polygons_distance} {aggregate_unit}",
-            minimum_area="0 SquareMilesUS",
-            minimum_hole_size=f"{aggregate_hole_size} {hole_size_unit}",
-            orthogonality_option="NON_ORTHOGONAL",
-            barrier_features=None,
-            out_table=f"{output_gdb}\\AggregatePolygonsTable",
-            aggregate_field=None
+            out_feature_class=f"{output_gdb}\\EliminatePolygon",
+            condition="AREA",
+            part_area=f"{eliminate_polygon_area_size} {eliminate_polygon_area_unit}",
+            part_area_percent=0,
+            part_option=part_option
         )
-        AddMessage(f"Aggregate process finished!")
+        AddMessage(f"Eliminate polygon parts finished!")
+
+        AddMessage(f"Starting positive buffer process...")
+        positive_buffer_fc = PairwiseBuffer(
+            in_features=eliminate_polygon_part_fc,
+            out_feature_class=f"{output_gdb}\\PositiveBuffer",
+            buffer_distance_or_field=f"{buffer_distance} {buffer_unit}",
+            dissolve_option="ALL",
+            dissolve_field=None,
+            method="PLANAR",
+            max_deviation="0 Feet"
+        )
+        AddMessage(f"Positive buffer finished!")
+
+        AddMessage(f"Starting negative buffer process...")
+        negative_buffer_fc = PairwiseBuffer(
+            in_features=positive_buffer_fc,
+            out_feature_class=f"{output_gdb}\\NegativeBuffer",
+            buffer_distance_or_field=f"-{buffer_distance} {buffer_unit}",
+            dissolve_option="ALL",
+            dissolve_field=None,
+            method="PLANAR",
+            max_deviation="0 Feet"
+        )
+        AddMessage(f"Negative buffer finished!")
 
         AddMessage(f"Starting multipart to singlepart process...")
         multi_to_single_fc = MultipartToSinglepart(
-            in_features=aggregate_polygons_fc,
+            in_features=negative_buffer_fc,
             out_feature_class=f"{output_gdb}\\MultiToSingle",
         )
         AddMessage(f"Multipart to singlepart complete!")
@@ -202,43 +217,16 @@ class evacuation_boundary_generator:
         )
         AddMessage(f"Largest polygon extracted and saved to geodatabase!")
 
-        AddMessage(f"Starting positive buffer process...")
-        positive_buffer_fc = PairwiseBuffer(
+        AddMessage(f"Removing holes and extra polygons potentially created from buffer process...")
+        EliminatePolygonPart(
             in_features=largest_polygon,
-            out_feature_class=f"{output_gdb}\\PositiveBuffer",
-            buffer_distance_or_field=f"{buffer_distance} {buffer_unit}",
-            dissolve_option="ALL",
-            dissolve_field=None,
-            method="PLANAR",
-            max_deviation="0 Feet"
-        )
-        AddMessage(f"Positive buffer finished!")
-
-        AddMessage(f"Starting negative buffer process...")
-        negative_buffer_fc = PairwiseBuffer(
-            in_features=positive_buffer_fc,
-            out_feature_class=f"{output_gdb}\\NegativeBuffer",
-            buffer_distance_or_field=f"-{buffer_distance} {buffer_unit}",
-            dissolve_option="ALL",
-            dissolve_field=None,
-            method="PLANAR",
-            max_deviation="0 Feet"
-        )
-        AddMessage(f"Negative buffer finished!")
-
-        AddMessage(f"Removing holes created from buffer process...")
-        AggregatePolygons(
-            in_features=negative_buffer_fc,
             out_feature_class=f"{output_gdb}\\FinalPolygon",
-            aggregation_distance=f"{aggregate_polygons_distance} {aggregate_unit}",
-            minimum_area="0 SquareMilesUS",
-            minimum_hole_size=f"{aggregate_hole_size} {hole_size_unit}",
-            orthogonality_option="NON_ORTHOGONAL",
-            barrier_features=None,
-            out_table=f"{output_gdb}\\AggregatePolygonsTable",
-            aggregate_field=None
+            condition="AREA",
+            part_area=f"{eliminate_polygon_area_size} {eliminate_polygon_area_unit}",
+            part_area_percent=0,
+            part_option=part_option
         )
-        AddMessage(f"Aggregate process part two finished!")
+        AddMessage(f"Eliminate polygon part part two finished!")
         
         return
 
