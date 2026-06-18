@@ -12,19 +12,11 @@ from arcpy.da import (
 )
 from arcpy.analysis import (
     PairwiseBuffer,
-    Union,
     Select
-)
-from arcpy.cartography import (
-    AggregatePolygons
 )
 from arcpy.management import (
     MultipartToSinglepart,
-    SelectLayerByAttribute,
     EliminatePolygonPart
-)
-from arcpy.conversion import (
-    ExportFeatures
 )
 
 class Toolbox:
