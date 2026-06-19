@@ -18,6 +18,9 @@ from arcpy.management import (
     MultipartToSinglepart,
     EliminatePolygonPart
 )
+from arcpy.cartography import (
+    SmoothPolygon
+)
 
 class Toolbox:
     def __init__(self):
@@ -210,16 +213,27 @@ class evacuation_boundary_generator:
         AddMessage(f"Largest polygon extracted and saved to geodatabase!")
 
         AddMessage(f"Removing holes and extra polygons potentially created from buffer process...")
-        EliminatePolygonPart(
+        eliminate_polygon_part_two = EliminatePolygonPart(
             in_features=largest_polygon,
-            out_feature_class=f"{output_gdb}\\FinalPolygon",
+            out_feature_class=f"{output_gdb}\\EliminatePolygonPartTwo",
             condition="AREA",
             part_area=f"{eliminate_polygon_area_size} {eliminate_polygon_area_unit}",
             part_area_percent=0,
             part_option=part_option
         )
         AddMessage(f"Eliminate polygon part part two finished!")
-        
+
+        AddMessage("Finalizing boundary polygon...")
+        SmoothPolygon(
+            in_features=eliminate_polygon_part_two,
+            out_feature_class=f"{output_gdb}\\FinalPolygon",
+            algorithm="PAEK",
+            tolerance="1000 Feet",
+            endpoint_option="FIXED_ENDPOINT",
+            error_option="NO_CHECK",
+            in_barriers=None
+        )
+        AddMessage("Final polygon created!")
         return
 
 
