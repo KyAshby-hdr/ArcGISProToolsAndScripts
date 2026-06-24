@@ -51,8 +51,8 @@ class evacuation_boundary_generator:
         )
 
         eliminate_polygon_area_size = Parameter(
-            displayName="Maximum polygon area to remove polygon parts (holes and polygons)",
-            name="aggregate_hole_size",
+            displayName="Maximum polygon area to remove polygon parts",
+            name="eliminate_polygon_area_size",
             datatype="Double",
             parameterType="Required",
             direction="Input"
