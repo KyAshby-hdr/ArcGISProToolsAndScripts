@@ -12,7 +12,8 @@ from arcpy.da import (
 )
 from arcpy.analysis import (
     PairwiseBuffer,
-    Select
+    Select,
+    Union
 )
 from arcpy.management import (
     MultipartToSinglepart,
@@ -50,7 +51,7 @@ class evacuation_boundary_generator:
         )
 
         eliminate_polygon_area_size = Parameter(
-            displayName="Minimum polygon area to remove polygon parts (holes and polygons)",
+            displayName="Maximum polygon area to remove polygon parts (holes and polygons)",
             name="aggregate_hole_size",
             datatype="Double",
             parameterType="Required",
@@ -95,6 +96,34 @@ class evacuation_boundary_generator:
 
         buffer_unit.filter.list = ["Feet", "Miles"]
 
+        smoothing_tolerance = Parameter(
+            displayName="Smoothing tolerance (ft)",
+            name="smoothing_tolerance",
+            datatype="GPString",
+            parameterType="Required",
+            direction="Input"
+        )
+
+        outer_buffer_distance = Parameter(
+            displayName="Outer buffer distance",
+            name="outer_buffer_distance",
+            datatype="Long",
+            parameterType="Required",
+            direction="Input"
+        )
+
+        outer_buffer_unit = Parameter(
+            displayName="Outer buffer unit",
+            name="outer_buffer_unit",
+            datatype="GPString",
+            parameterType="Required",
+            direction="Input"
+        )
+
+        outer_buffer_unit.filter.type = "ValueList"
+
+        outer_buffer_unit.filter.list = ["Feet", "Miles"]
+
         output_gdb = Parameter(
             displayName="Output geodatabase",
             name="output_gdb",
@@ -110,6 +139,9 @@ class evacuation_boundary_generator:
             eliminate_polygon_area_contained_parts,
             buffer_distance,
             buffer_unit,
+            smoothing_tolerance,
+            outer_buffer_distance,
+            outer_buffer_unit,
             output_gdb,
         ]
         return params
@@ -137,32 +169,22 @@ class evacuation_boundary_generator:
         eliminate_polygon_area_contained_parts = parameters[3].valueAsText
         buffer_distance = parameters[4].valueAsText
         buffer_unit = parameters[5].valueAsText
-        output_gdb = parameters[6].valueAsText
+        smoothing_tolerance = parameters[6].valueAsText
+        outer_buffer_distance = parameters[7].valueAsText
+        outer_buffer_unit = parameters[8].valueAsText
+        output_gdb = parameters[9].valueAsText
 
         env.workspace = output_gdb
         AddMessage(f"{output_gdb} is the output gdb")
 
         if eliminate_polygon_area_contained_parts:
             part_option = "CONTAINED_ONLY"
-            eliminate_polygon_area_message = "contained parts only"
         else:
             part_option = "ANY"
-            eliminate_polygon_area_message = "all parts"
-
-        AddMessage(f"Removing {eliminate_polygon_area_message} from inundation polygon with an area less than {eliminate_polygon_area_size} {eliminate_polygon_area_unit}...")
-        eliminate_polygon_part_fc = EliminatePolygonPart(
-            in_features=input_inundation_boundary,
-            out_feature_class=f"{output_gdb}\\EliminatePolygon",
-            condition="AREA",
-            part_area=f"{eliminate_polygon_area_size} {eliminate_polygon_area_unit}",
-            part_area_percent=0,
-            part_option=part_option
-        )
-        AddMessage(f"Eliminate polygon parts finished!")
 
         AddMessage(f"Starting positive buffer process...")
         positive_buffer_fc = PairwiseBuffer(
-            in_features=eliminate_polygon_part_fc,
+            in_features=input_inundation_boundary,
             out_feature_class=f"{output_gdb}\\PositiveBuffer",
             buffer_distance_or_field=f"{buffer_distance} {buffer_unit}",
             dissolve_option="ALL",
@@ -212,26 +234,56 @@ class evacuation_boundary_generator:
         )
         AddMessage(f"Largest polygon extracted and saved to geodatabase!")
 
-        AddMessage(f"Removing holes and extra polygons potentially created from buffer process...")
+        AddMessage(f"Removing polygon parts with an area less than {eliminate_polygon_area_size} {eliminate_polygon_area_unit}...")
         eliminate_polygon_part_two = EliminatePolygonPart(
             in_features=largest_polygon,
-            out_feature_class=f"{output_gdb}\\EliminatePolygonPartTwo",
+            out_feature_class=f"{output_gdb}\\EliminatePolygonPart",
             condition="AREA",
             part_area=f"{eliminate_polygon_area_size} {eliminate_polygon_area_unit}",
             part_area_percent=0,
             part_option=part_option
         )
-        AddMessage(f"Eliminate polygon part part two finished!")
+        AddMessage(f"Eliminate polygon part finished!")
 
-        AddMessage("Finalizing boundary polygon...")
-        SmoothPolygon(
+        AddMessage("Creating smoothed polygon...")
+        smoothed_polygon_fc = SmoothPolygon(
             in_features=eliminate_polygon_part_two,
-            out_feature_class=f"{output_gdb}\\FinalPolygon",
+            out_feature_class=f"{output_gdb}\\SmoothedPolygon",
             algorithm="PAEK",
-            tolerance="1000 Feet",
+            tolerance=f"{smoothing_tolerance} Feet",
             endpoint_option="FIXED_ENDPOINT",
             error_option="NO_CHECK",
             in_barriers=None
+        )
+        AddMessage("Smoothed polygon created!")
+
+        AddMessage("Creating outer region polygon...")
+        outer_region_buffer = PairwiseBuffer(
+            in_features=smoothed_polygon_fc,
+            out_feature_class=f"{output_gdb}\\OuterRegionBuffer",
+            buffer_distance_or_field=f"{outer_buffer_distance} {outer_buffer_unit}",
+            dissolve_option="ALL",
+            dissolve_field=None,
+            method="PLANAR",
+            max_deviation="0 Feet"
+        )
+        outer_region_eliminate_part = EliminatePolygonPart(
+            in_features=outer_region_buffer,
+            out_feature_class=f"{output_gdb}\\OuterRegionBufferEliminatePart",
+            condition="AREA",
+            part_area=f"{eliminate_polygon_area_size} {eliminate_polygon_area_unit}",
+            part_area_percent=0,
+            part_option=part_option
+        )
+        AddMessage("Outer region polygon created!")
+
+        AddMessage("Creating final polygon...")
+        Union(
+            in_features=f"{smoothed_polygon_fc} #;{outer_region_eliminate_part} #",
+            out_feature_class=f"{output_gdb}\\FinalPolygonUnion",
+            join_attributes="ALL",
+            cluster_tolerance=None,
+            gaps="GAPS"
         )
         AddMessage("Final polygon created!")
         return
